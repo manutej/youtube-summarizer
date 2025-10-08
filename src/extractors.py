@@ -145,17 +145,45 @@ class TranscriptExtractor:
             raise ValueError(f"Failed to extract transcript for {video_id}: {e}")
 
     def _extract_metadata_simple(self, video_id: str) -> VideoMetadata:
-        """Extract basic video metadata without pytube (which currently has issues)."""
-        return VideoMetadata(
-            video_id=video_id,
-            title=f"YouTube Video {video_id}",  # Could enhance with yt-dlp or WebFetch
-            channel=None,
-            duration=None,
-            publish_date=None,
-            view_count=None,
-            description=None,
-            url=f"https://www.youtube.com/watch?v={video_id}",
-        )
+        """Extract video metadata using yt-dlp."""
+        try:
+            import yt_dlp
+
+            # Configure yt-dlp for fast metadata extraction only
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': False,
+                'skip_download': True,
+            }
+
+            url = f"https://www.youtube.com/watch?v={video_id}"
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+
+                return VideoMetadata(
+                    video_id=video_id,
+                    title=info.get('title'),
+                    channel=info.get('uploader') or info.get('channel'),
+                    duration=info.get('duration'),  # seconds
+                    publish_date=info.get('upload_date'),  # YYYYMMDD format
+                    view_count=info.get('view_count'),
+                    description=info.get('description'),
+                    url=url,
+                )
+        except Exception as e:
+            # Fallback to basic metadata if yt-dlp fails
+            return VideoMetadata(
+                video_id=video_id,
+                title=f"YouTube Video {video_id}",
+                channel=None,
+                duration=None,
+                publish_date=None,
+                view_count=None,
+                description=None,
+                url=f"https://www.youtube.com/watch?v={video_id}",
+            )
 
     def _extract_segments(self, doc: Document) -> list[TranscriptSegment]:
         """
