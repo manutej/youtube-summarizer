@@ -6,11 +6,18 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
+
 from .chunkers import ChunkingStrategy, TranscriptChunker, recommend_chunking_strategy
 from .config import config
 from .extractors import BatchTranscriptExtractor, TranscriptExtractor
 from .models import VideoMetadata
 from .summarizer import ClaudeSummarizer
+
+# Initialize rich console
+console = Console()
 
 
 def setup_argparser() -> argparse.ArgumentParser:
@@ -243,11 +250,22 @@ def process_single_video(
 
     print("  └─ ✓ Summary generated")
 
+    # Generate markdown content
+    markdown_content = summary.to_markdown(format_type=args.format)
+
+    # Display in console with rich formatting
+    console.print("\n")
+    console.print(Panel(
+        Markdown(markdown_content),
+        title=f"📺 [bold cyan]{title}[/bold cyan]",
+        border_style="cyan",
+        padding=(1, 2),
+    ))
+    console.print("\n")
+
     # Save to file
     output_path = determine_output_path(args, transcript.metadata)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    markdown_content = summary.to_markdown(format_type=args.format)
 
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(markdown_content)
