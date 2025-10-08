@@ -28,3 +28,6 @@ yt-dlp>=2024.0.0
 
 # Utilities
 python-dotenv>=1.0.0
+
+# Console Output
+rich>=13.0.0
