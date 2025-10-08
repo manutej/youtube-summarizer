@@ -39,10 +39,23 @@ EXTENDED_THINKING=false
 OUTPUT=""
 VERBOSE=false
 
+# ASCII Banner
+show_banner() {
+    echo -e "${CYAN}"
+    cat << 'EOF'
+    ╦ ╦╔╦╗
+    ╚╦╝ ║
+     ╩  ╩
+EOF
+    echo -e "${NC}"
+    echo -e "    ${MAGENTA}YouTube → Summary${NC}"
+    echo -e "    ${CYAN}━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+}
+
 # Help text
 show_help() {
-    echo -e "${CYAN}yt - YouTube Video Summarizer${NC}"
-    echo ""
+    show_banner
     echo -e "${YELLOW}USAGE:${NC}"
     echo "    yt <url|video_id> [options]"
     echo ""
@@ -206,8 +219,6 @@ done
 
 # Check if URL provided
 if [[ ${#URLS[@]} -eq 0 ]]; then
-    echo -e "${RED}Error: No YouTube URL or video ID provided${NC}" >&2
-    echo ""
     show_help
     exit 1
 fi
