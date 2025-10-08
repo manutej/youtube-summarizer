@@ -108,14 +108,14 @@ class TranscriptExtractor:
             # Use youtube-transcript-api directly (more reliable than LangChain + pytube)
             from youtube_transcript_api import YouTubeTranscriptApi
 
-            # Fetch transcript
+            # Fetch transcript using v1.2.2+ API
             api = YouTubeTranscriptApi()
             transcript_list = api.fetch(video_id, languages=self.language)
 
             if not transcript_list:
                 raise ValueError(f"No transcript found for video: {video_id}")
 
-            # Extract segments
+            # Extract segments (returns FetchedTranscriptSnippet objects)
             segments = [
                 TranscriptSegment(
                     text=item.text,
@@ -170,7 +170,7 @@ class TranscriptExtractor:
         video_id = doc.metadata.get('source', '').split('=')[-1]
 
         try:
-            # Get raw transcript with timestamps using new API
+            # Get raw transcript with timestamps using v1.2.2+ API
             api = YouTubeTranscriptApi()
             transcript_list = api.fetch(video_id, languages=self.language)
 

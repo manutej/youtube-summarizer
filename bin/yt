@@ -41,86 +41,84 @@ VERBOSE=false
 
 # Help text
 show_help() {
-    cat << EOF
-${CYAN}yt - YouTube Video Summarizer${NC}
-
-${YELLOW}USAGE:${NC}
-    yt <url|video_id> [options]
-
-${YELLOW}QUICK FORMATS:${NC}
-    yt <url>              Quick summary (concise, default)
-    yt <url> -d           Detailed summary with timestamps
-    yt <url> -a           Academic notes format
-    yt <url> -b           Bullet points only
-    yt <url> -t           Deep analysis (extended thinking)
-
-${YELLOW}EXAMPLES:${NC}
-    ${GREEN}# Quick summary${NC}
-    yt https://youtube.com/watch?v=dQw4w9WgXcQ
-    yt dQw4w9WgXcQ
-
-    ${GREEN}# Detailed summary to specific file${NC}
-    yt dQw4w9WgXcQ -d -o ~/summaries/my-video.md
-
-    ${GREEN}# Academic notes with deep thinking${NC}
-    yt https://youtube.com/watch?v=abc123 -a -t
-
-    ${GREEN}# Multiple videos${NC}
-    yt url1 url2 url3 --batch
-
-${YELLOW}OPTIONS:${NC}
-    ${BLUE}Format Options:${NC}
-    -c, --concise         Concise summary (default)
-    -d, --detailed        Detailed summary with timestamps
-    -a, --academic        Academic notes format
-    -b, --bullets         Bullet points format
-
-    ${BLUE}Processing Options:${NC}
-    -t, --thinking        Enable extended thinking (deep analysis)
-    --chunking <strategy> Chunking strategy: none, auto, recursive, semantic
-    --chunk-size <size>   Chunk size in tokens (default: 1000)
-
-    ${BLUE}Output Options:${NC}
-    -o, --output <file>   Output file path
-    -v, --verbose         Verbose output
-
-    ${BLUE}Batch Options:${NC}
-    --batch               Process multiple videos
-
-    ${BLUE}Other:${NC}
-    -h, --help            Show this help message
-    --version             Show version information
-
-${YELLOW}ENVIRONMENT VARIABLES:${NC}
-    ANTHROPIC_API_KEY     Your Anthropic API key (required)
-    YT_FORMAT             Default format (concise, detailed, academic, bullets)
-    YT_OUTPUT_DIR         Default output directory (default: summaries/)
-
-${YELLOW}FILES:${NC}
-    Config:  ${PROJECT_ROOT}/.env
-    Output:  ${PROJECT_ROOT}/summaries/
-    Docs:    ${PROJECT_ROOT}/README.md
-
-${YELLOW}MORE INFO:${NC}
-    Full docs: ${PROJECT_ROOT}/README.md
-    Usage guide: ${PROJECT_ROOT}/USAGE_GUIDE.md
-    Quick start: ${PROJECT_ROOT}/QUICKSTART.md
-
-${CYAN}Examples of common workflows:${NC}
-
-    ${GREEN}# Research a topic${NC}
-    yt <lecture-url> -a -o notes/topic.md
-
-    ${GREEN}# Quick screening${NC}
-    yt <url> -c
-
-    ${GREEN}# Deep technical analysis${NC}
-    yt <tutorial-url> -d -t
-
-    ${GREEN}# Batch process playlist URLs from file${NC}
-    cat playlist.txt | xargs yt --batch
-
-EOF
+    echo -e "${CYAN}yt - YouTube Video Summarizer${NC}"
+    echo ""
+    echo -e "${YELLOW}USAGE:${NC}"
+    echo "    yt <url|video_id> [options]"
+    echo ""
+    echo -e "${YELLOW}QUICK FORMATS:${NC}"
+    echo "    yt <url>              Quick summary (concise, default)"
+    echo "    yt <url> -d           Detailed summary with timestamps"
+    echo "    yt <url> -a           Academic notes format"
+    echo "    yt <url> -b           Bullet points only"
+    echo "    yt <url> -t           Deep analysis (extended thinking)"
+    echo ""
+    echo -e "${YELLOW}EXAMPLES:${NC}"
+    echo -e "    ${GREEN}# Quick summary${NC}"
+    echo "    yt https://youtube.com/watch?v=dQw4w9WgXcQ"
+    echo "    yt dQw4w9WgXcQ"
+    echo ""
+    echo -e "    ${GREEN}# Detailed summary to specific file${NC}"
+    echo "    yt dQw4w9WgXcQ -d -o ~/summaries/my-video.md"
+    echo ""
+    echo -e "    ${GREEN}# Academic notes with deep thinking${NC}"
+    echo "    yt https://youtube.com/watch?v=abc123 -a -t"
+    echo ""
+    echo -e "    ${GREEN}# Multiple videos${NC}"
+    echo "    yt url1 url2 url3 --batch"
+    echo ""
+    echo -e "${YELLOW}OPTIONS:${NC}"
+    echo -e "    ${BLUE}Format Options:${NC}"
+    echo "    -c, --concise         Concise summary (default)"
+    echo "    -d, --detailed        Detailed summary with timestamps"
+    echo "    -a, --academic        Academic notes format"
+    echo "    -b, --bullets         Bullet points format"
+    echo ""
+    echo -e "    ${BLUE}Processing Options:${NC}"
+    echo "    -t, --thinking        Enable extended thinking (deep analysis)"
+    echo "    --chunking <strategy> Chunking strategy: none, auto, recursive, semantic"
+    echo "    --chunk-size <size>   Chunk size in tokens (default: 1000)"
+    echo ""
+    echo -e "    ${BLUE}Output Options:${NC}"
+    echo "    -o, --output <file>   Output file path"
+    echo "    -v, --verbose         Verbose output"
+    echo ""
+    echo -e "    ${BLUE}Batch Options:${NC}"
+    echo "    --batch               Process multiple videos"
+    echo ""
+    echo -e "    ${BLUE}Other:${NC}"
+    echo "    -h, --help            Show this help message"
+    echo "    --version             Show version information"
+    echo ""
+    echo -e "${YELLOW}ENVIRONMENT VARIABLES:${NC}"
+    echo "    ANTHROPIC_API_KEY     Your Anthropic API key (required)"
+    echo "    YT_FORMAT             Default format (concise, detailed, academic, bullets)"
+    echo "    YT_OUTPUT_DIR         Default output directory (default: summaries/)"
+    echo ""
+    echo -e "${YELLOW}FILES:${NC}"
+    echo "    Config:  ${PROJECT_ROOT}/.env"
+    echo "    Output:  ${PROJECT_ROOT}/summaries/"
+    echo "    Docs:    ${PROJECT_ROOT}/README.md"
+    echo ""
+    echo -e "${YELLOW}MORE INFO:${NC}"
+    echo "    Full docs: ${PROJECT_ROOT}/README.md"
+    echo "    Usage guide: ${PROJECT_ROOT}/USAGE_GUIDE.md"
+    echo "    Quick start: ${PROJECT_ROOT}/QUICKSTART.md"
+    echo ""
+    echo -e "${CYAN}Examples of common workflows:${NC}"
+    echo ""
+    echo -e "    ${GREEN}# Research a topic${NC}"
+    echo "    yt <lecture-url> -a -o notes/topic.md"
+    echo ""
+    echo -e "    ${GREEN}# Quick screening${NC}"
+    echo "    yt <url> -c"
+    echo ""
+    echo -e "    ${GREEN}# Deep technical analysis${NC}"
+    echo "    yt <tutorial-url> -d -t"
+    echo ""
+    echo -e "    ${GREEN}# Batch process playlist URLs from file${NC}"
+    echo "    cat playlist.txt | xargs yt --batch"
+    echo ""
 }
 
 show_version() {
