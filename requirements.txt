@@ -1,0 +1,30 @@
+# YouTube Transcript Extraction
+youtube-transcript-api==0.6.2
+
+# LangChain Core
+langchain-community>=0.3.0
+langchain-anthropic>=0.3.0
+langchain-text-splitters>=0.3.0
+langchain-core>=0.3.0
+
+# Optional: Semantic Chunking
+langchain-experimental>=0.3.0
+langchain-openai>=0.2.0  # For embeddings (OpenAI)
+
+# LLM Integration (Direct API)
+anthropic>=0.18.0
+
+# Token Counting
+tiktoken>=0.5.0
+
+# Data Validation
+pydantic>=2.0.0
+
+# Optional: Enhanced metadata extraction
+pytube>=15.0.0
+
+# Optional: Fallback transcript extraction
+yt-dlp>=2024.0.0
+
+# Utilities
+python-dotenv>=1.0.0

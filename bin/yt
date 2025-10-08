@@ -1,0 +1,261 @@
+#!/usr/bin/env bash
+#
+# yt - YouTube Video Summarizer CLI Wrapper
+#
+# Quick command-line tool to summarize YouTube videos using Claude AI
+#
+# Usage:
+#   yt <url>                    # Quick summary (concise format)
+#   yt <url> -d                 # Detailed summary
+#   yt <url> -a                 # Academic notes
+#   yt <url> -b                 # Bullet points
+#   yt <url> -t                 # Deep thinking mode
+#   yt -h                       # Show help
+#
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Python virtual environment
+VENV_PATH="$PROJECT_ROOT/venv"
+PYTHON_CMD="$VENV_PATH/bin/python3"
+
+# Default values
+FORMAT="concise"
+CHUNKING="auto"
+EXTENDED_THINKING=false
+OUTPUT=""
+VERBOSE=false
+
+# Help text
+show_help() {
+    cat << EOF
+${CYAN}yt - YouTube Video Summarizer${NC}
+
+${YELLOW}USAGE:${NC}
+    yt <url|video_id> [options]
+
+${YELLOW}QUICK FORMATS:${NC}
+    yt <url>              Quick summary (concise, default)
+    yt <url> -d           Detailed summary with timestamps
+    yt <url> -a           Academic notes format
+    yt <url> -b           Bullet points only
+    yt <url> -t           Deep analysis (extended thinking)
+
+${YELLOW}EXAMPLES:${NC}
+    ${GREEN}# Quick summary${NC}
+    yt https://youtube.com/watch?v=dQw4w9WgXcQ
+    yt dQw4w9WgXcQ
+
+    ${GREEN}# Detailed summary to specific file${NC}
+    yt dQw4w9WgXcQ -d -o ~/summaries/my-video.md
+
+    ${GREEN}# Academic notes with deep thinking${NC}
+    yt https://youtube.com/watch?v=abc123 -a -t
+
+    ${GREEN}# Multiple videos${NC}
+    yt url1 url2 url3 --batch
+
+${YELLOW}OPTIONS:${NC}
+    ${BLUE}Format Options:${NC}
+    -c, --concise         Concise summary (default)
+    -d, --detailed        Detailed summary with timestamps
+    -a, --academic        Academic notes format
+    -b, --bullets         Bullet points format
+
+    ${BLUE}Processing Options:${NC}
+    -t, --thinking        Enable extended thinking (deep analysis)
+    --chunking <strategy> Chunking strategy: none, auto, recursive, semantic
+    --chunk-size <size>   Chunk size in tokens (default: 1000)
+
+    ${BLUE}Output Options:${NC}
+    -o, --output <file>   Output file path
+    -v, --verbose         Verbose output
+
+    ${BLUE}Batch Options:${NC}
+    --batch               Process multiple videos
+
+    ${BLUE}Other:${NC}
+    -h, --help            Show this help message
+    --version             Show version information
+
+${YELLOW}ENVIRONMENT VARIABLES:${NC}
+    ANTHROPIC_API_KEY     Your Anthropic API key (required)
+    YT_FORMAT             Default format (concise, detailed, academic, bullets)
+    YT_OUTPUT_DIR         Default output directory (default: summaries/)
+
+${YELLOW}FILES:${NC}
+    Config:  ${PROJECT_ROOT}/.env
+    Output:  ${PROJECT_ROOT}/summaries/
+    Docs:    ${PROJECT_ROOT}/README.md
+
+${YELLOW}MORE INFO:${NC}
+    Full docs: ${PROJECT_ROOT}/README.md
+    Usage guide: ${PROJECT_ROOT}/USAGE_GUIDE.md
+    Quick start: ${PROJECT_ROOT}/QUICKSTART.md
+
+${CYAN}Examples of common workflows:${NC}
+
+    ${GREEN}# Research a topic${NC}
+    yt <lecture-url> -a -o notes/topic.md
+
+    ${GREEN}# Quick screening${NC}
+    yt <url> -c
+
+    ${GREEN}# Deep technical analysis${NC}
+    yt <tutorial-url> -d -t
+
+    ${GREEN}# Batch process playlist URLs from file${NC}
+    cat playlist.txt | xargs yt --batch
+
+EOF
+}
+
+show_version() {
+    echo "yt - YouTube Video Summarizer v0.1.0"
+    echo "Built with Claude Code"
+}
+
+# Check if virtual environment exists
+check_setup() {
+    if [[ ! -d "$VENV_PATH" ]]; then
+        echo -e "${RED}Error: Virtual environment not found at $VENV_PATH${NC}" >&2
+        echo -e "${YELLOW}Run setup first:${NC}" >&2
+        echo -e "  cd $PROJECT_ROOT && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt" >&2
+        exit 1
+    fi
+
+    if [[ ! -f "$PROJECT_ROOT/.env" ]]; then
+        echo -e "${YELLOW}Warning: .env file not found. Create one with your ANTHROPIC_API_KEY${NC}" >&2
+    fi
+}
+
+# Parse arguments
+URLS=()
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        --version)
+            show_version
+            exit 0
+            ;;
+        -c|--concise)
+            FORMAT="concise"
+            shift
+            ;;
+        -d|--detailed)
+            FORMAT="detailed"
+            shift
+            ;;
+        -a|--academic)
+            FORMAT="academic"
+            shift
+            ;;
+        -b|--bullets)
+            FORMAT="bullet_points"
+            shift
+            ;;
+        -t|--thinking)
+            EXTENDED_THINKING=true
+            shift
+            ;;
+        -o|--output)
+            OUTPUT="$2"
+            shift 2
+            ;;
+        -v|--verbose)
+            VERBOSE=true
+            shift
+            ;;
+        --chunking)
+            CHUNKING="$2"
+            shift 2
+            ;;
+        --chunk-size)
+            CHUNK_SIZE="$2"
+            shift 2
+            ;;
+        --batch)
+            BATCH=true
+            shift
+            ;;
+        -*)
+            echo -e "${RED}Unknown option: $1${NC}" >&2
+            echo "Use 'yt --help' for usage information"
+            exit 1
+            ;;
+        *)
+            URLS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Check if URL provided
+if [[ ${#URLS[@]} -eq 0 ]]; then
+    echo -e "${RED}Error: No YouTube URL or video ID provided${NC}" >&2
+    echo ""
+    show_help
+    exit 1
+fi
+
+# Check setup
+check_setup
+
+# Build command
+CMD=("$PYTHON_CMD" "-m" "src.cli")
+
+# Add URLs
+for url in "${URLS[@]}"; do
+    CMD+=("$url")
+done
+
+# Add format
+CMD+=("--format" "$FORMAT")
+
+# Add chunking
+CMD+=("--chunking" "$CHUNKING")
+
+# Add optional parameters
+if [[ "$EXTENDED_THINKING" == "true" ]]; then
+    CMD+=("--extended-thinking")
+fi
+
+if [[ -n "${OUTPUT:-}" ]]; then
+    CMD+=("--output" "$OUTPUT")
+fi
+
+if [[ -n "${CHUNK_SIZE:-}" ]]; then
+    CMD+=("--chunk-size" "$CHUNK_SIZE")
+fi
+
+if [[ "${BATCH:-false}" == "true" ]]; then
+    CMD+=("--batch")
+fi
+
+if [[ "$VERBOSE" == "true" ]]; then
+    CMD+=("--verbose")
+fi
+
+# Execute
+if [[ "$VERBOSE" == "true" ]]; then
+    echo -e "${CYAN}Executing:${NC} ${CMD[*]}" >&2
+fi
+
+cd "$PROJECT_ROOT"
+exec "${CMD[@]}"
