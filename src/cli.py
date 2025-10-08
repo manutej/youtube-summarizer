@@ -1,6 +1,7 @@
 """Command-line interface for YouTube video summarizer."""
 
 import argparse
+import re
 import sys
 from pathlib import Path
 from typing import Optional
@@ -8,6 +9,7 @@ from typing import Optional
 from .chunkers import ChunkingStrategy, TranscriptChunker, recommend_chunking_strategy
 from .config import config
 from .extractors import BatchTranscriptExtractor, TranscriptExtractor
+from .models import VideoMetadata
 from .summarizer import ClaudeSummarizer
 
 
@@ -141,14 +143,43 @@ def determine_chunking_strategy(args, transcript) -> ChunkingStrategy:
         return ChunkingStrategy(args.chunking)
 
 
-def determine_output_path(args, video_id: str) -> Path:
-    """Determine output file path."""
+def sanitize_filename(text: str) -> str:
+    """Sanitize text for use in filename."""
+    # Remove or replace invalid filename characters
+    text = re.sub(r'[<>:"/\\|?*]', '', text)
+    # Replace spaces and multiple dashes with single dash
+    text = re.sub(r'[\s_]+', '-', text)
+    # Remove leading/trailing dashes and dots
+    text = text.strip('.-')
+    # Limit length
+    return text[:100]
+
+
+def determine_output_path(args, metadata: VideoMetadata) -> Path:
+    """Determine output file path with channel and title."""
     if args.output:
         return Path(args.output)
+
+    config.ensure_directories()
+
+    # Build filename: {channel}/{title}_{video_id}.md
+    video_id = metadata.video_id
+
+    # Sanitize channel name for directory
+    if metadata.channel:
+        channel_dir = sanitize_filename(metadata.channel)
+        base_dir = config.output_dir / channel_dir
     else:
-        # Default: summaries/<video_id>.md
-        config.ensure_directories()
-        return config.output_dir / f"{video_id}.md"
+        base_dir = config.output_dir
+
+    # Sanitize title for filename
+    if metadata.title and metadata.title != f"YouTube Video {video_id}":
+        title_part = sanitize_filename(metadata.title)
+        filename = f"{title_part}_{video_id}.md"
+    else:
+        filename = f"{video_id}.md"
+
+    return base_dir / filename
 
 
 def process_single_video(
@@ -213,7 +244,7 @@ def process_single_video(
     print("  └─ ✓ Summary generated")
 
     # Save to file
-    output_path = determine_output_path(args, video_id)
+    output_path = determine_output_path(args, transcript.metadata)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     markdown_content = summary.to_markdown(format_type=args.format)
