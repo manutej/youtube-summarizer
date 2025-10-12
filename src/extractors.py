@@ -12,7 +12,7 @@ from .models import TranscriptSegment, VideoMetadata, VideoTranscript
 
 
 class YouTubeURLParser:
-    """Parse YouTube URLs to extract video IDs."""
+    """Parse YouTube URLs to extract video IDs and playlist IDs."""
 
     @staticmethod
     def extract_video_id(url: str) -> Optional[str]:
@@ -49,6 +49,29 @@ class YouTubeURLParser:
             return parsed_url.path.lstrip('/')
 
         return None
+
+    @staticmethod
+    def extract_playlist_id(url: str) -> Optional[str]:
+        """
+        Extract playlist ID from YouTube playlist URL.
+
+        Supports:
+        - https://www.youtube.com/playlist?list=PLAYLIST_ID
+        - https://www.youtube.com/watch?v=VIDEO_ID&list=PLAYLIST_ID
+        """
+        parsed_url = urlparse(url)
+
+        if parsed_url.hostname in ['www.youtube.com', 'youtube.com']:
+            query = parse_qs(parsed_url.query)
+            return query.get('list', [None])[0]
+
+        return None
+
+    @staticmethod
+    def is_playlist_url(url: str) -> bool:
+        """Check if URL is a playlist URL."""
+        playlist_id = YouTubeURLParser.extract_playlist_id(url)
+        return playlist_id is not None
 
 
 class TranscriptExtractor:
@@ -273,18 +296,57 @@ class BatchTranscriptExtractor:
 
         return results
 
-    def extract_from_playlist(self, playlist_url: str) -> dict[str, VideoTranscript | Exception]:
+    def extract_from_playlist(
+        self, playlist_url: str, continue_on_error: bool = True
+    ) -> dict[str, VideoTranscript | Exception]:
         """
         Extract transcripts from all videos in a playlist.
 
         Args:
             playlist_url: YouTube playlist URL
+            continue_on_error: Continue processing if a video fails
 
         Returns:
             Dict mapping video URL to VideoTranscript or Exception
-
-        Note: Requires additional implementation for playlist parsing
         """
-        # TODO: Implement playlist parsing
-        # Could use pytube or yt-dlp for playlist extraction
-        raise NotImplementedError("Playlist support coming soon")
+        try:
+            import yt_dlp
+        except ImportError:
+            raise ImportError("yt-dlp is required for playlist support. Install with: pip install yt-dlp")
+
+        # Extract playlist information
+        playlist_id = YouTubeURLParser.extract_playlist_id(playlist_url)
+        if not playlist_id:
+            raise ValueError(f"Could not extract playlist ID from URL: {playlist_url}")
+
+        # Configure yt-dlp to extract playlist entries
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': True,  # Don't download, just get URLs
+            'skip_download': True,
+        }
+
+        video_urls = []
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                playlist_info = ydl.extract_info(playlist_url, download=False)
+
+                if 'entries' not in playlist_info:
+                    raise ValueError(f"No videos found in playlist: {playlist_url}")
+
+                # Extract video URLs from playlist
+                for entry in playlist_info['entries']:
+                    if entry and 'id' in entry:
+                        video_url = f"https://www.youtube.com/watch?v={entry['id']}"
+                        video_urls.append(video_url)
+
+        except Exception as e:
+            raise ValueError(f"Failed to extract playlist information: {e}")
+
+        if not video_urls:
+            raise ValueError(f"No videos found in playlist: {playlist_url}")
+
+        # Use existing batch extraction
+        return self.extract_from_urls(video_urls, continue_on_error=continue_on_error)

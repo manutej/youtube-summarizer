@@ -3,6 +3,7 @@
 import argparse
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -12,7 +13,7 @@ from rich.panel import Panel
 
 from .chunkers import ChunkingStrategy, TranscriptChunker, recommend_chunking_strategy
 from .config import config
-from .extractors import BatchTranscriptExtractor, TranscriptExtractor
+from .extractors import BatchTranscriptExtractor, TranscriptExtractor, YouTubeURLParser
 from .models import VideoMetadata
 from .summarizer import ClaudeSummarizer
 
@@ -274,6 +275,177 @@ def process_single_video(
     print(f"  └─ ✅ Complete!")
 
 
+def create_playlist_index(
+    playlist_title: str,
+    playlist_url: str,
+    video_summaries: list[tuple[Path, VideoMetadata]],
+    output_dir: Path,
+) -> Path:
+    """Create a playlist index/table of contents."""
+    index_path = output_dir / f"_PLAYLIST_INDEX_{sanitize_filename(playlist_title)}.md"
+
+    lines = [
+        f"# {playlist_title}",
+        "",
+        f"**Playlist URL**: {playlist_url}",
+        f"**Total Videos**: {len(video_summaries)}",
+        f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        "",
+        "---",
+        "",
+        "## Video Summaries",
+        "",
+    ]
+
+    for idx, (file_path, metadata) in enumerate(video_summaries, 1):
+        title = metadata.title or metadata.video_id
+        duration = metadata.duration_formatted or "Unknown"
+        relative_path = file_path.name
+
+        lines.append(f"### {idx}. {title}")
+        lines.append(f"- **Duration**: {duration}")
+        lines.append(f"- **Video URL**: {metadata.url}")
+        lines.append(f"- **Summary**: [{relative_path}](./{relative_path})")
+        lines.append("")
+
+    lines.extend([
+        "---",
+        "",
+        f"**Index Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        "**Generated with**: [Claude Code](https://claude.com/claude-code)",
+    ])
+
+    with open(index_path, 'w', encoding='utf-8') as f:
+        f.write("\n".join(lines))
+
+    return index_path
+
+
+def process_playlist(
+    playlist_url: str,
+    extractor: TranscriptExtractor,
+    summarizer: ClaudeSummarizer,
+    args,
+) -> None:
+    """Process an entire playlist."""
+    print(f"\n📺 Processing Playlist: {playlist_url}")
+
+    # Extract playlist info using yt-dlp
+    try:
+        import yt_dlp
+
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': True,
+            'skip_download': True,
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            playlist_info = ydl.extract_info(playlist_url, download=False)
+            playlist_title = playlist_info.get('title', 'Unknown Playlist')
+            playlist_count = len(playlist_info.get('entries', []))
+
+        print(f"  └─ Playlist: {playlist_title}")
+        print(f"  └─ Videos: {playlist_count}")
+
+    except Exception as e:
+        print(f"  └─ ⚠️  Could not fetch playlist metadata: {e}")
+        playlist_title = "Unknown Playlist"
+
+    # Extract transcripts from playlist
+    print(f"  └─ Extracting transcripts...")
+    batch_extractor = BatchTranscriptExtractor(extractor)
+
+    try:
+        results = batch_extractor.extract_from_playlist(playlist_url, continue_on_error=True)
+    except Exception as e:
+        print(f"  └─ ❌ Failed to process playlist: {e}")
+        return
+
+    # Process each video
+    successful = 0
+    failed = 0
+    video_summaries = []
+
+    for video_url, result in results.items():
+        if isinstance(result, Exception):
+            print(f"\n  ❌ Failed: {video_url}")
+            print(f"     Error: {result}")
+            failed += 1
+            continue
+
+        try:
+            # Process transcript
+            transcript = result
+            video_id = transcript.metadata.video_id
+            title = transcript.metadata.title or video_id
+
+            print(f"\n  📹 Processing: {title}")
+
+            # Determine chunking
+            chunking_strategy = determine_chunking_strategy(args, transcript)
+
+            # Generate summary
+            if chunking_strategy == ChunkingStrategy.NONE:
+                summary = summarizer.summarize_transcript(
+                    transcript,
+                    format_type=args.format,
+                )
+            else:
+                chunker = TranscriptChunker(
+                    strategy=chunking_strategy,
+                    chunk_size=args.chunk_size,
+                    chunk_overlap=args.chunk_overlap,
+                )
+                chunks = chunker.chunk_transcript(transcript)
+
+                if isinstance(chunks, list):
+                    summary = summarizer.summarize_chunks(
+                        chunks,
+                        transcript,
+                        format_type=args.format,
+                    )
+                else:
+                    summary = summarizer.summarize_transcript(
+                        transcript,
+                        format_type=args.format,
+                    )
+
+            # Save individual video summary
+            output_path = determine_output_path(args, transcript.metadata)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            markdown_content = summary.to_markdown(format_type=args.format)
+
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+
+            print(f"     └─ ✓ Saved: {output_path}")
+            video_summaries.append((output_path, transcript.metadata))
+            successful += 1
+
+        except Exception as e:
+            print(f"     └─ ❌ Error: {e}")
+            if args.verbose:
+                import traceback
+                traceback.print_exc()
+            failed += 1
+
+    # Create playlist index
+    if video_summaries:
+        output_dir = video_summaries[0][0].parent
+        index_path = create_playlist_index(playlist_title, playlist_url, video_summaries, output_dir)
+        print(f"\n  📋 Created playlist index: {index_path}")
+
+    # Summary
+    print(f"\n  {'='*50}")
+    print(f"  📊 Playlist Summary:")
+    print(f"     ✅ Successful: {successful}")
+    print(f"     ❌ Failed: {failed}")
+    print(f"     📁 Total: {successful + failed}")
+
+
 def main():
     """Main CLI entry point."""
     parser = setup_argparser()
@@ -301,23 +473,32 @@ def main():
         thinking_budget=args.thinking_budget,
     )
 
+    # Check if any URL is a playlist
+    playlist_urls = [url for url in args.urls if YouTubeURLParser.is_playlist_url(url)]
+    video_urls = [url for url in args.urls if not YouTubeURLParser.is_playlist_url(url)]
+
+    # Process playlists
+    for playlist_url in playlist_urls:
+        process_playlist(playlist_url, extractor, summarizer, args)
+
     # Process videos
-    if args.batch or len(args.urls) > 1:
-        print(f"\n📦 Batch processing {len(args.urls)} videos")
-        batch_extractor = BatchTranscriptExtractor(extractor)
+    if video_urls:
+        if args.batch or len(video_urls) > 1:
+            print(f"\n📦 Batch processing {len(video_urls)} videos")
+            batch_extractor = BatchTranscriptExtractor(extractor)
 
-        for url in args.urls:
-            try:
-                process_single_video(url, extractor, summarizer, args)
-            except Exception as e:
-                print(f"  └─ ❌ Error processing {url}: {e}")
-                if args.verbose:
-                    import traceback
+            for url in video_urls:
+                try:
+                    process_single_video(url, extractor, summarizer, args)
+                except Exception as e:
+                    print(f"  └─ ❌ Error processing {url}: {e}")
+                    if args.verbose:
+                        import traceback
 
-                    traceback.print_exc()
-    else:
-        # Single video
-        process_single_video(args.urls[0], extractor, summarizer, args)
+                        traceback.print_exc()
+        else:
+            # Single video
+            process_single_video(video_urls[0], extractor, summarizer, args)
 
     print("\n" + "=" * 50)
     print("✨ All done!")
