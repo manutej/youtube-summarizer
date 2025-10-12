@@ -6,12 +6,13 @@ Complete guide to using the YouTube Video Summarizer tool.
 
 1. [Installation](#installation)
 2. [Configuration](#configuration)
-3. [Basic Usage](#basic-usage)
-4. [Advanced Features](#advanced-features)
-5. [Understanding Formats](#understanding-formats)
-6. [Chunking Strategies](#chunking-strategies)
-7. [Troubleshooting](#troubleshooting)
-8. [Best Practices](#best-practices)
+3. [Claude Code Integration](#claude-code-integration)
+4. [Basic Usage](#basic-usage)
+5. [Advanced Features](#advanced-features)
+6. [Understanding Formats](#understanding-formats)
+7. [Chunking Strategies](#chunking-strategies)
+8. [Troubleshooting](#troubleshooting)
+9. [Best Practices](#best-practices)
 
 ---
 
@@ -77,6 +78,57 @@ OPENAI_API_KEY=your_openai_key_here
 The tool creates these directories automatically:
 - `summaries/` - Generated video summaries
 - `docs/` - Documentation and research notes
+
+---
+
+## Claude Code Integration
+
+If you're using [Claude Code](https://claude.com/claude-code), the easiest way to use the summarizer is with the `/yt` slash command:
+
+### Quick Commands
+
+```bash
+# Quick summary (concise format)
+/yt https://youtube.com/watch?v=VIDEO_ID
+
+# Detailed summary with timestamps
+/yt https://youtube.com/watch?v=VIDEO_ID -d
+
+# Academic notes format
+/yt https://youtube.com/watch?v=VIDEO_ID -a
+
+# Bullet points format
+/yt https://youtube.com/watch?v=VIDEO_ID -b
+```
+
+### Advanced Options
+
+```bash
+# Deep analysis with extended thinking
+/yt https://youtube.com/watch?v=VIDEO_ID -a -t
+
+# Custom output location
+/yt https://youtube.com/watch?v=VIDEO_ID -d -o summaries/my-video.md
+
+# Batch process multiple videos
+/yt url1 url2 url3 --batch
+
+# With custom chunking
+/yt https://youtube.com/watch?v=VIDEO_ID --chunking semantic
+
+# Verbose output
+/yt https://youtube.com/watch?v=VIDEO_ID -v
+```
+
+### Supported Flags
+
+All CLI flags work with the `/yt` command:
+- **Format**: `-c` (concise), `-d` (detailed), `-a` (academic), `-b` (bullets)
+- **Processing**: `-t` (extended thinking), `--chunking <strategy>`, `--chunk-size <size>`
+- **Output**: `-o <file>` (custom output), `-v` (verbose)
+- **Batch**: `--batch` (process multiple URLs)
+
+The command automatically executes `./bin/yt` and displays results inline.
 
 ---
 

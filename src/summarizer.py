@@ -279,6 +279,11 @@ Synthesize these into a comprehensive summary of the entire video.
                 "type": "enabled",
                 "budget_tokens": self.thinking_budget,
             }
+            # Temperature must be 1.0 when thinking is enabled
+            message_params["temperature"] = 1.0
+            # Ensure max_tokens > thinking_budget
+            if message_params["max_tokens"] <= self.thinking_budget:
+                message_params["max_tokens"] = self.thinking_budget + 4096
 
         # Call API
         response = self.client.messages.create(**message_params)

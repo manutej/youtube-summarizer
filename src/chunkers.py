@@ -267,10 +267,6 @@ def recommend_chunking_strategy(
     elif duration < 1800:  # < 30 minutes
         return ChunkingStrategy.RECURSIVE
 
-    # Long videos: semantic or timestamp chunking
+    # Long videos: recursive chunking (avoiding semantic to prevent OpenAI API key requirement)
     else:
-        # Prefer semantic if available, otherwise timestamp
-        if SEMANTIC_CHUNKING_AVAILABLE:
-            return ChunkingStrategy.SEMANTIC
-        else:
-            return ChunkingStrategy.TIMESTAMP
+        return ChunkingStrategy.RECURSIVE

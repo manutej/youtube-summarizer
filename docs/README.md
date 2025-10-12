@@ -11,6 +11,12 @@ This directory contains project documentation and research.
   - Summarization workflows
   - Best practices and recommendations
 
+- **YT_COMMAND_REFERENCE.md**: Quick reference guide for the `/yt` Claude Code slash command
+  - Command syntax and examples
+  - Flag combinations and workflows
+  - Troubleshooting tips
+  - Performance and cost considerations
+
 ## Research Topics
 
 ### LangChain Components

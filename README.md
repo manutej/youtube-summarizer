@@ -72,6 +72,35 @@ python -m src.cli "https://youtube.com/watch?v=VIDEO_ID" \
   --chunk-size 1500
 ```
 
+### Claude Code Integration
+
+If you're using [Claude Code](https://claude.com/claude-code), you can use the `/yt` slash command for quick summaries:
+
+```bash
+# Quick summary
+/yt https://youtube.com/watch?v=VIDEO_ID
+
+# Detailed summary
+/yt https://youtube.com/watch?v=VIDEO_ID -d
+
+# Academic notes
+/yt https://youtube.com/watch?v=VIDEO_ID -a
+
+# Bullet points
+/yt https://youtube.com/watch?v=VIDEO_ID -b
+
+# Deep analysis with extended thinking
+/yt https://youtube.com/watch?v=VIDEO_ID -a -t
+
+# Custom output file
+/yt https://youtube.com/watch?v=VIDEO_ID -d -o summaries/my-summary.md
+
+# Batch process multiple videos
+/yt url1 url2 url3 --batch
+```
+
+The `/yt` command automatically executes the CLI tool and displays results inline in your Claude Code session.
+
 ## Summary Formats
 
 ### Concise
