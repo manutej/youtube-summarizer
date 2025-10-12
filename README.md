@@ -9,6 +9,8 @@ Transform YouTube videos into LLM-friendly summaries using Claude and LangChain.
 - **✂️ Intelligent Chunking**: Multiple chunking strategies (recursive, semantic, timestamp-based)
 - **📝 Multiple Formats**: Concise, detailed, academic, and bullet-point summaries
 - **⚡ Batch Processing**: Process multiple videos or entire playlists
+- **📑 Playlist Support**: Automatically extract and summarize all videos in a playlist
+- **📋 Automatic Index Generation**: Creates organized table of contents for playlists
 - **🎯 Extended Thinking**: Optional deep analysis mode for complex content
 - **📦 LangChain Integration**: Leverages LangChain for document loading and processing
 
@@ -65,6 +67,9 @@ python -m src.cli "https://youtube.com/watch?v=VIDEO_ID" --extended-thinking
 # Batch process multiple videos
 python -m src.cli URL1 URL2 URL3 --batch
 
+# Process entire playlist
+python -m src.cli "https://youtube.com/playlist?list=PLAYLIST_ID" --format detailed
+
 # Academic format with custom chunking
 python -m src.cli "https://youtube.com/watch?v=VIDEO_ID" \
   --format academic \
@@ -97,6 +102,9 @@ If you're using [Claude Code](https://claude.com/claude-code), you can use the `
 
 # Batch process multiple videos
 /yt url1 url2 url3 --batch
+
+# Process playlist
+/yt "https://youtube.com/playlist?list=PLAYLIST_ID" -d
 ```
 
 The `/yt` command automatically executes the CLI tool and displays results inline in your Claude Code session.
@@ -266,6 +274,18 @@ python -m src.cli \
   --format concise
 ```
 
+### Example 4: Process Entire Playlist
+```bash
+# Automatically extracts all videos from playlist and summarizes each
+python -m src.cli "https://youtube.com/playlist?list=PL6tW9BrhiPTCDteflzehKS6Cn3a79-iCs" \
+  --format detailed \
+  --chunking auto
+
+# Output: Individual summaries per video + playlist index
+# - summaries/Channel-Name/Video-Title_VIDEO_ID.md
+# - summaries/Channel-Name/_PLAYLIST_INDEX_Playlist-Name.md
+```
+
 ## Project Structure
 
 ```
@@ -301,7 +321,7 @@ See [docs/LANGCHAIN_RESEARCH.md](docs/LANGCHAIN_RESEARCH.md) for comprehensive r
 
 1. **New Output Format**: Modify `summarizer.py::_get_task_instructions()`
 2. **New Chunking Strategy**: Add to `chunkers.py::ChunkingStrategy` enum
-3. **Playlist Support**: Implement in `extractors.py::BatchTranscriptExtractor`
+3. **New Playlist Features**: Extend `extractors.py::BatchTranscriptExtractor` and `cli.py::process_playlist()`
 
 ## Limitations
 
@@ -332,11 +352,12 @@ See [docs/LANGCHAIN_RESEARCH.md](docs/LANGCHAIN_RESEARCH.md) for comprehensive r
 ## Contributing
 
 Contributions welcome! Areas for improvement:
-- Playlist support
 - Better transcript parsing for speaker detection
 - Custom prompt templates
 - Output format customization
 - Caching for repeated videos
+- Parallel processing for playlists
+- Playlist progress saving/resuming
 
 ## License
 
