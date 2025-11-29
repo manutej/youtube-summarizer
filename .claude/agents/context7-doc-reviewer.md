@@ -1,0 +1,1 @@
+/Users/manu/Documents/LUXOR/.claude/agents/context7-doc-reviewer.md
