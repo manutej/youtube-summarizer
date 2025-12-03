@@ -196,12 +196,21 @@ def process_single_video(
     args,
 ) -> None:
     """Process a single video."""
+    from .retry import YouTubeThrottledError
+
     print(f"\n📹 Processing: {url}")
+
+    # Define retry callback for user feedback
+    def on_retry(error: Exception, attempt: int, delay: float) -> None:
+        print(f"  └─ ⚠️  Request throttled (attempt {attempt + 1}). Retrying in {delay:.1f}s...")
 
     # Extract transcript
     print("  └─ Extracting transcript...")
     try:
-        transcript = extractor.extract_from_url(url)
+        transcript = extractor.extract_from_url(url, on_retry_callback=on_retry)
+    except YouTubeThrottledError as e:
+        print(f"  └─ ⚠️  {e.get_user_message()}")
+        return
     except Exception as e:
         print(f"  └─ ❌ Failed to extract transcript: {e}")
         return
