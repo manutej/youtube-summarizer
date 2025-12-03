@@ -2,7 +2,7 @@
 
 import logging
 import re
-from typing import Optional
+from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 from langchain_community.document_loaders import YoutubeLoader
@@ -82,12 +82,17 @@ class TranscriptExtractor:
         self.language = language or config.preferred_languages
         self.translation = translation
 
-    def extract_from_url(self, url: str) -> VideoTranscript:
+    def extract_from_url(
+        self,
+        url: str,
+        on_retry_callback: Optional[Callable[[Exception, int, float], None]] = None,
+    ) -> VideoTranscript:
         """
         Extract transcript from YouTube URL.
 
         Args:
             url: YouTube video URL or video ID
+            on_retry_callback: Optional callback for retry events (error, attempt, delay)
 
         Returns:
             VideoTranscript with metadata and segments
@@ -99,17 +104,19 @@ class TranscriptExtractor:
         if not video_id:
             raise ValueError(f"Could not extract video ID from URL: {url}")
 
-        return self.extract_from_video_id(video_id)
+        return self.extract_from_video_id(video_id, on_retry_callback)
 
     def _fetch_transcript_with_retry(
-        self, video_id: str, on_retry_callback: Optional[callable] = None
+        self,
+        video_id: str,
+        on_retry_callback: Optional[Callable[[Exception, int, float], None]] = None,
     ) -> list:
         """
         Fetch transcript from YouTube with exponential backoff retry.
 
         Args:
             video_id: YouTube video ID
-            on_retry_callback: Optional callback for retry events
+            on_retry_callback: Optional callback for retry events (error, attempt, delay)
 
         Returns:
             List of transcript snippets
@@ -163,7 +170,7 @@ class TranscriptExtractor:
     def extract_from_video_id(
         self,
         video_id: str,
-        on_retry_callback: Optional[callable] = None,
+        on_retry_callback: Optional[Callable[[Exception, int, float], None]] = None,
     ) -> VideoTranscript:
         """
         Extract transcript from YouTube video ID.

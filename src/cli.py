@@ -207,7 +207,7 @@ def process_single_video(
     # Extract transcript
     print("  └─ Extracting transcript...")
     try:
-        transcript = extractor.extract_from_url(url)
+        transcript = extractor.extract_from_url(url, on_retry_callback=on_retry)
     except YouTubeThrottledError as e:
         print(f"  └─ ⚠️  {e.get_user_message()}")
         return
