@@ -10,6 +10,7 @@ This directory contains project documentation and research.
   - Claude integration
   - Summarization workflows
   - Best practices and recommendations
+- **ERROR_HANDLING.md**: Guide to error handling and retry logic
 
 ## Research Topics
 
@@ -29,6 +30,12 @@ This directory contains project documentation and research.
 - Prompt engineering techniques
 - Extended thinking mode
 - Structured output
+
+### Error Handling
+- Exponential backoff for API rate limiting
+- Retry logic for transient failures
+- User-friendly error messages
+- Throttle detection and handling
 
 ## Contributing
 

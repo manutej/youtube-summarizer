@@ -1,5 +1,6 @@
 """Transcript extraction using LangChain and youtube-transcript-api."""
 
+import logging
 import re
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
@@ -9,6 +10,15 @@ from langchain_core.documents import Document
 
 from .config import config
 from .models import TranscriptSegment, VideoMetadata, VideoTranscript
+from .retry import (
+    RetryConfig,
+    YouTubeThrottledError,
+    is_retryable_youtube_error,
+    retry_with_backoff,
+)
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class YouTubeURLParser:
@@ -91,26 +101,89 @@ class TranscriptExtractor:
 
         return self.extract_from_video_id(video_id)
 
-    def extract_from_video_id(self, video_id: str) -> VideoTranscript:
+    def _fetch_transcript_with_retry(
+        self, video_id: str, on_retry_callback: Optional[callable] = None
+    ) -> list:
+        """
+        Fetch transcript from YouTube with exponential backoff retry.
+
+        Args:
+            video_id: YouTube video ID
+            on_retry_callback: Optional callback for retry events
+
+        Returns:
+            List of transcript snippets
+
+        Raises:
+            YouTubeThrottledError: If throttled after all retries
+            ValueError: For other errors
+        """
+        from youtube_transcript_api import YouTubeTranscriptApi
+        from youtube_transcript_api._errors import TooManyRequests, YouTubeRequestFailed
+
+        api = YouTubeTranscriptApi()
+        retry_config = RetryConfig(
+            max_retries=3,
+            base_delay=2.0,
+            max_delay=60.0,
+            exponential_base=2.0,
+            jitter=True,
+        )
+
+        attempts_made = 0
+
+        def on_retry(error: Exception, attempt: int, delay: float) -> None:
+            nonlocal attempts_made
+            attempts_made = attempt + 1
+            logger.warning(
+                f"YouTube API request failed (attempt {attempt + 1}): {error}. "
+                f"Retrying in {delay:.1f}s..."
+            )
+            if on_retry_callback:
+                on_retry_callback(error, attempt, delay)
+
+        try:
+            return retry_with_backoff(
+                func=lambda: api.fetch(video_id, languages=self.language),
+                config=retry_config,
+                retryable_check=is_retryable_youtube_error,
+                on_retry=on_retry,
+            )
+        except (TooManyRequests, YouTubeRequestFailed) as e:
+            # Check if it's a throttling error
+            if is_retryable_youtube_error(e):
+                raise YouTubeThrottledError(
+                    message=f"YouTube is throttling requests for video {video_id}. "
+                    f"Please wait and try again later.",
+                    original_error=e,
+                    attempts_made=attempts_made + 1,
+                )
+            raise ValueError(f"Failed to fetch transcript for {video_id}: {e}")
+
+    def extract_from_video_id(
+        self,
+        video_id: str,
+        on_retry_callback: Optional[callable] = None,
+    ) -> VideoTranscript:
         """
         Extract transcript from YouTube video ID.
 
         Args:
             video_id: YouTube video ID
+            on_retry_callback: Optional callback for retry events (error, attempt, delay)
 
         Returns:
             VideoTranscript with metadata and segments
 
         Raises:
             ValueError: If transcript is unavailable
+            YouTubeThrottledError: If YouTube is throttling requests
         """
         try:
-            # Use youtube-transcript-api directly (more reliable than LangChain + pytube)
-            from youtube_transcript_api import YouTubeTranscriptApi
-
-            # Fetch transcript using v1.2.2+ API
-            api = YouTubeTranscriptApi()
-            transcript_list = api.fetch(video_id, languages=self.language)
+            # Fetch transcript with exponential backoff retry
+            transcript_list = self._fetch_transcript_with_retry(
+                video_id, on_retry_callback
+            )
 
             if not transcript_list:
                 raise ValueError(f"No transcript found for video: {video_id}")
@@ -141,6 +214,9 @@ class TranscriptExtractor:
                 is_auto_generated=is_auto_generated,
             )
 
+        except YouTubeThrottledError:
+            # Re-raise throttle errors with user-friendly message
+            raise
         except Exception as e:
             raise ValueError(f"Failed to extract transcript for {video_id}: {e}")
 
@@ -192,15 +268,24 @@ class TranscriptExtractor:
         Note: LangChain's YoutubeLoader returns full transcript as single text.
         To get timestamped segments, we need to use youtube-transcript-api directly.
         """
-        # Import here to avoid circular dependency issues
         from youtube_transcript_api import YouTubeTranscriptApi
 
         video_id = doc.metadata.get('source', '').split('=')[-1]
 
         try:
-            # Get raw transcript with timestamps using v1.2.2+ API
+            # Use retry logic for fetching transcript
             api = YouTubeTranscriptApi()
-            transcript_list = api.fetch(video_id, languages=self.language)
+            retry_config = RetryConfig(
+                max_retries=3,
+                base_delay=2.0,
+                max_delay=60.0,
+            )
+
+            transcript_list = retry_with_backoff(
+                func=lambda: api.fetch(video_id, languages=self.language),
+                config=retry_config,
+                retryable_check=is_retryable_youtube_error,
+            )
 
             segments = [
                 TranscriptSegment(
